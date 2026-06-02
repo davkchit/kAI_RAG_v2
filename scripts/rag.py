@@ -1,4 +1,5 @@
 import os
+import random
 
 import httpx
 import numpy as np
@@ -206,9 +207,26 @@ def hybrid_search(question: str, collection_name: str) -> list:
     return _rerank(question, candidates)[:CONTEXT_LIMIT]
 
 
+_GREETINGS = {"привет", "здравствуй", "здравствуйте", "хай", "добрый день", "добрый вечер", "доброе утро", "салют", "хэй", "hey", "hi", "hello"}
+
+_CLOSINGS = [
+    "Пиши, если будут ещё вопросы 💙",
+    "Если что-то непонятно — спрашивай 💙",
+    "Обращайся, всегда помогу 💙",
+]
+
+
+def _is_greeting(text: str) -> bool:
+    t = text.strip().lower().rstrip("!.,?")
+    return t in _GREETINGS or any(t.startswith(g) for g in _GREETINGS)
+
+
 def ask_question(question: str) -> str:
     if question.strip() == "/start":
         return "Давай же начнем наше общение! Я всегда на связи, спрашивай 💙"
+
+    if _is_greeting(question):
+        return "Привет! Я твой помощник по НЧФ КНИТУ-КАИ. Чем могу помочь? 💙"
 
     search_results = hybrid_search(question, COLLECTION_NAME)
 
@@ -267,7 +285,10 @@ def ask_question(question: str) -> str:
         temperature=0.2,
     )
 
-    return completion.choices[0].message.content
+    answer = completion.choices[0].message.content
+    if random.random() < 0.10:
+        answer = answer.rstrip() + "\n\n" + random.choice(_CLOSINGS)
+    return answer
 
 
 if __name__ == "__main__":
