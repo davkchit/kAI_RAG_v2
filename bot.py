@@ -38,13 +38,20 @@ async def on_message(message: Message) -> None:
 
     await bot.send_chat_action(message.chat.id, "typing")
 
-    def _answer():
-        # Import inside thread — never blocks the event loop
-        from scripts.rag import ask_question
-        return ask_question(question)
+    try:
+        def _answer():
+            from scripts.rag import ask_question
+            return ask_question(question)
 
-    answer = await asyncio.to_thread(_answer)
-    await message.answer(clean_answer(answer), parse_mode=None)
+        answer = await asyncio.wait_for(asyncio.to_thread(_answer), timeout=60)
+        await message.answer(clean_answer(answer), parse_mode=None)
+
+    except asyncio.TimeoutError:
+        log.error("Timeout after 60s for q=%r", question[:80])
+        await message.answer("Не успел обработать запрос, попробуй ещё раз.", parse_mode=None)
+    except Exception as e:
+        log.error("Error answering q=%r: %s", question[:80], e, exc_info=True)
+        await message.answer("Произошла ошибка, попробуй ещё раз.", parse_mode=None)
 
 
 async def main() -> None:
