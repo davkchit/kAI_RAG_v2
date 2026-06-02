@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>НЧФ КНИТУ-КАИ — Крылья для жизни</title>
+<meta name="description" content="Набережночелнинский филиал КНИТУ-КАИ. Инженеры будущего. Интеллект нового поколения.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700;900&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="cursor-ring" aria-hidden="true"></div>
+<div id="cursor-dot" aria-hidden="true"></div>
+
+<!-- ═══ NAVIGATION ═══ -->
+<nav id="nav">
+  <div class="nav-progress" id="navProgress"></div>
+  <div class="container nav-inner">
+    <a href="#" class="nav-logo"><img src="images/kai-logo.svg" alt="КАИ"></a>
+    <div class="nav-links">
+      <a href="#about">О филиале</a>
+      <a href="#programs">Направления</a>
+      <a href="#admission">Поступление</a>
+      <a href="#contacts">Контакты</a>
+      <a href="#admission" class="nav-cta">Поступить</a>
+    </div>
+    <button class="burger" id="burger" aria-label="Меню">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="mobile-menu" id="mobileMenu">
+    <div class="container mobile-menu-inner">
+      <a href="#about" class="mobile-link">О филиале</a>
+      <a href="#programs" class="mobile-link">Направления</a>
+      <a href="#admission" class="mobile-link">Поступление</a>
+      <a href="#contacts" class="mobile-link">Контакты</a>
+      <a href="#admission" class="mobile-cta">Поступить</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-grid" aria-hidden="true"></div>
+
+  <div class="hero-blueprint" aria-hidden="true">
+    <svg viewBox="0 0 1400 700" class="hero-svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <path class="h-arc h-arc-0" d="M 580,230 A 120,120 0 0 1 580,470" stroke="oklch(52% 0.22 264 / 0.07)" stroke-width="1" fill="none"/>
+      <path class="h-arc h-arc-1" d="M 580,115 A 235,235 0 0 1 580,585" stroke="oklch(52% 0.22 264 / 0.07)" stroke-width="1" fill="none"/>
+      <path class="h-arc h-arc-2" d="M 580,-5 A 355,355 0 0 1 580,705" stroke="oklch(52% 0.22 264 / 0.07)" stroke-width="1" fill="none"/>
+      <path class="h-arc h-arc-3" d="M 580,-120 A 470,470 0 0 1 580,820" stroke="oklch(52% 0.22 264 / 0.07)" stroke-width="1" fill="none"/>
+      <path class="h-arc h-arc-4" d="M 580,-225 A 575,575 0 0 1 580,925" stroke="oklch(52% 0.22 264 / 0.07)" stroke-width="1" fill="none"/>
+      <path class="h-chord" d="M 580,350 L 1220,350" stroke="oklch(52% 0.22 264 / 0.3)" stroke-width="0.75" stroke-dasharray="10 7" fill="none" pathLength="1"/>
+      <path class="h-wing-top" d="M 580,350 C 614,299 662,272 742,267 C 822,262 934,274 1052,295 C 1142,311 1192,335 1220,350" stroke="oklch(52% 0.22 264 / 0.75)" stroke-width="2" fill="none" stroke-linecap="round" pathLength="1"/>
+      <path class="h-wing-bot" d="M 580,350 C 612,370 662,376 742,374 C 822,372 934,366 1052,358 C 1142,352 1192,351 1220,350" stroke="oklch(52% 0.22 264 / 0.75)" stroke-width="2" fill="none" stroke-linecap="round" pathLength="1"/>
+      <path class="h-rib h-rib-0" d="M 708,268 L 708,374" stroke="oklch(52% 0.22 264 / 0.25)" stroke-width="0.8" fill="none" pathLength="1"/>
+      <path class="h-rib h-rib-1" d="M 804,264 L 804,373" stroke="oklch(52% 0.22 264 / 0.25)" stroke-width="0.8" fill="none" pathLength="1"/>
+      <path class="h-rib h-rib-2" d="M 900,270 L 900,369" stroke="oklch(52% 0.22 264 / 0.25)" stroke-width="0.8" fill="none" pathLength="1"/>
+      <path class="h-rib h-rib-3" d="M 996,283 L 996,363" stroke="oklch(52% 0.22 264 / 0.25)" stroke-width="0.8" fill="none" pathLength="1"/>
+      <path class="h-rib h-rib-4" d="M 1092,300 L 1092,357" stroke="oklch(52% 0.22 264 / 0.25)" stroke-width="0.8" fill="none" pathLength="1"/>
+      <g class="h-span">
+        <path d="M 580,222 L 1220,222" stroke="oklch(52% 0.22 264 / 0.22)" stroke-width="0.75" fill="none"/>
+        <path d="M 580,216 L 580,268 M 1220,216 L 1220,268" stroke="oklch(52% 0.22 264 / 0.22)" stroke-width="0.75" fill="none"/>
+        <path d="M 576,222 L 584,218 M 576,222 L 584,226 M 1216,222 L 1224,218 M 1216,222 L 1224,226" stroke="oklch(52% 0.22 264 / 0.22)" stroke-width="0.75" fill="none"/>
+      </g>
+      <circle class="h-le" cx="580" cy="350" r="5" fill="oklch(52% 0.19 22 / 0.9)"/>
+      <circle class="h-le-pulse" cx="580" cy="350" r="5" stroke="oklch(52% 0.19 22 / 0.35)" stroke-width="1.5" fill="none"/>
+      <circle class="h-te" cx="1220" cy="350" r="3" fill="oklch(52% 0.22 264 / 0.45)"/>
+      <text class="h-chord-lbl" x="900" y="212" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.38)" font-size="10" font-family="var(--font-accent)" letter-spacing="0.15em">ПРОФИЛЬ КРЫЛА</text>
+      <text class="h-rib-lbl h-rl-0" x="708" y="393" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.28)" font-size="8" font-family="var(--font-accent)" letter-spacing="0.1em">20%</text>
+      <text class="h-rib-lbl h-rl-1" x="804" y="393" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.28)" font-size="8" font-family="var(--font-accent)" letter-spacing="0.1em">35%</text>
+      <text class="h-rib-lbl h-rl-2" x="900" y="393" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.28)" font-size="8" font-family="var(--font-accent)" letter-spacing="0.1em">50%</text>
+      <text class="h-rib-lbl h-rl-3" x="996" y="393" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.28)" font-size="8" font-family="var(--font-accent)" letter-spacing="0.1em">65%</text>
+      <text class="h-rib-lbl h-rl-4" x="1092" y="393" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.28)" font-size="8" font-family="var(--font-accent)" letter-spacing="0.1em">80%</text>
+      <g class="h-title-block">
+        <rect x="1060" y="446" width="190" height="52" stroke="oklch(52% 0.22 264 / 0.15)" stroke-width="0.5" fill="none"/>
+        <line x1="1060" y1="466" x2="1250" y2="466" stroke="oklch(52% 0.22 264 / 0.15)" stroke-width="0.5"/>
+        <line x1="1155" y1="446" x2="1155" y2="498" stroke="oklch(52% 0.22 264 / 0.15)" stroke-width="0.5"/>
+        <text x="1107" y="459" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.35)" font-size="7.5" font-family="var(--font-accent)" letter-spacing="0.1em">КНИТУ-КАИ</text>
+        <text x="1202" y="459" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.35)" font-size="7.5" font-family="var(--font-accent)" letter-spacing="0.1em">2026</text>
+        <text x="1107" y="485" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.22)" font-size="7.5" font-family="var(--font-accent)" letter-spacing="0.1em">НЧФ / КАИ</text>
+        <text x="1202" y="485" text-anchor="middle" fill="oklch(52% 0.22 264 / 0.22)" font-size="7.5" font-family="var(--font-accent)" letter-spacing="0.1em">REV.01</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="hero-vl" aria-hidden="true"></div>
+  <div class="hero-vb" aria-hidden="true"></div>
+
+  <div class="hero-content">
+    <h1 class="hero-title anim-0">НЧФ<br>КНИТУ-КАИ</h1>
+    <p class="hero-tag anim-1">Крылья для жизни</p>
+    <p class="hero-sub anim-2">Инженеры будущего.<br>Интеллект нового поколения.</p>
+    <div class="hero-btns anim-3">
+      <a href="#admission" class="btn btn-primary">Поступить</a>
+      <a href="#programs" class="btn btn-outline">Направления</a>
+    </div>
+  </div>
+
+  <div class="hero-scroll anim-4" aria-hidden="true">
+    <span class="scroll-lbl">Листать</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- ═══ STATEMENT ═══ -->
+<section id="statement" class="statement">
+  <div class="statement-glow" aria-hidden="true"></div>
+  <div class="statement-inner">
+    <div class="statement-content">
+      <div class="st-words">
+        <div class="st-word" id="stWord0">Технологии.</div>
+        <div class="st-word" id="stWord1">Инженерия.</div>
+        <div class="st-word" id="stWord2">Интеллект.</div>
+        <div class="st-word" id="stWord3">Будущее.</div>
+      </div>
+      <div class="st-final" id="stFinal">
+        <p class="st-final-text">Здесь создают инженеров нового времени.</p>
+        <div class="st-divider">
+          <span class="st-line"></span>
+          <span class="st-label">НЧФ КНИТУ-КАИ</span>
+          <span class="st-line"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ABOUT ═══ -->
+<section id="about" class="about">
+  <div class="about-bg">
+    <img src="images/kai-town.jpg" alt="Корпус НЧФ КНИТУ-КАИ">
+    <div class="about-ov"></div>
+    <div class="about-ov-b"></div>
+  </div>
+  <div class="container about-content">
+    <span class="sec-label fi" style="color:oklch(78% 0.12 264)">/ О филиале</span>
+    <h2 class="about-h fi">Набережные Челны.<br><span style="color:oklch(82% 0.16 264)">Инженеры</span> здесь.</h2>
+    <p class="about-p fi">НЧФ КНИТУ-КАИ готовит инженеров для промышленности Татарстана с 1974 года. Практика с первого курса, партнёры среди крупнейших предприятий города.</p>
+    <div class="about-facts fi">
+      <div class="about-fact"><p class="fact-n">1974</p><p class="fact-l">Год основания</p></div>
+      <div class="about-fact"><p class="fact-n">1000+</p><p class="fact-l">Студентов</p></div>
+      <div class="about-fact"><p class="fact-n">50+</p><p class="fact-l">Лет в инженерии</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PROGRAMS ═══ -->
+<section id="programs" class="programs section-pad">
+  <div class="top-line" aria-hidden="true"></div>
+  <div class="container">
+    <div class="prog-header">
+      <div>
+        <span class="sec-label blue fi">/ Образовательные программы</span>
+        <h2 class="sec-title fi">Направления</h2>
+      </div>
+      <p class="prog-sub fi">Четыре пути к профессии,<br>которая формирует будущее.</p>
+    </div>
+    <div class="prog-grid">
+      <div class="prog-card fi" data-i="0">
+        <div class="card-hbg"></div><div class="card-tline"></div>
+        <div class="card-body">
+          <div class="card-nbg" aria-hidden="true">01</div>
+          <span class="card-nl">01</span>
+          <h3 class="card-title">Информатика и вычислительная техника</h3>
+          <p class="card-sub">Компьютерные системы и ИИ</p>
+          <p class="card-desc">Программирование, архитектура ЭВМ, искусственный интеллект, встроенные системы.</p>
+          <div class="card-more">Подробнее <span>→</span></div>
+        </div>
+      </div>
+      <div class="prog-card fi" data-i="1">
+        <div class="card-hbg"></div><div class="card-tline"></div>
+        <div class="card-body">
+          <div class="card-nbg" aria-hidden="true">02</div>
+          <span class="card-nl">02</span>
+          <h3 class="card-title">Информационные системы и технологии</h3>
+          <p class="card-sub">Инфосистемы и технологии</p>
+          <p class="card-desc">Корпоративные информационные системы, базы данных, веб-технологии, аналитика.</p>
+          <div class="card-more">Подробнее <span>→</span></div>
+        </div>
+      </div>
+      <div class="prog-card fi" data-i="2">
+        <div class="card-hbg"></div><div class="card-tline"></div>
+        <div class="card-body">
+          <div class="card-nbg" aria-hidden="true">03</div>
+          <span class="card-nl">03</span>
+          <h3 class="card-title">Машиностроительные технологии</h3>
+          <p class="card-sub">Машиностроение и производство</p>
+          <p class="card-desc">CAD/CAM-системы, производство, автоматизация, материаловедение.</p>
+          <div class="card-more">Подробнее <span>→</span></div>
+        </div>
+      </div>
+      <div class="prog-card fi" data-i="3">
+        <div class="card-hbg"></div><div class="card-tline"></div>
+        <div class="card-body">
+          <div class="card-nbg" aria-hidden="true">04</div>
+          <span class="card-nl">04</span>
+          <h3 class="card-title">Экономика</h3>
+          <p class="card-sub">Экономика предприятия</p>
+          <p class="card-desc">Цифровая экономика, управление предприятием, финансовый анализ.</p>
+          <div class="card-more">Подробнее <span>→</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ LIVING INTELLIGENCE ═══ -->
+<section id="lab" class="living">
+  <div class="living-tline" aria-hidden="true"></div>
+  <canvas id="sphereCanvas" aria-hidden="true"></canvas>
+  <div class="living-ov-r" aria-hidden="true"></div>
+  <div class="living-ov-lr" aria-hidden="true"></div>
+  <div class="living-ov-b" aria-hidden="true"></div>
+  <div class="container living-content">
+    <span class="sec-label fi" style="color:oklch(75% 0.14 264)">/ Живой интеллект</span>
+    <h2 class="living-title fi">Living<br><span style="color:oklch(80% 0.18 264)">Intelligence</span></h2>
+    <p class="living-p fi">Образование, технологии и интеллект объединяются в единую живую систему. Здесь каждое решение — это импульс, каждый студент — узел нейронной сети будущего.</p>
+  </div>
+</section>
+
+<!-- ═══ CAMPUS ═══ -->
+<section id="campus" class="campus section-pad">
+  <div class="top-line" aria-hidden="true"></div>
+  <div class="container">
+    <div class="campus-header">
+      <span class="sec-label blue fi">/ Жизнь в КАИ</span>
+      <h2 class="sec-title fi">Среда для роста</h2>
+    </div>
+    <div class="campus-grid">
+      <div class="campus-block campus-main fi">
+        <svg class="cp" aria-hidden="true"><defs><pattern id="gp" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M 32 0 L 0 0 0 32" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".5"/></pattern></defs><rect width="100%" height="100%" fill="url(#gp)" opacity=".2"/><circle cx="50%" cy="50%" r="60" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".5" opacity=".4"/><circle cx="50%" cy="50%" r="30" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".5" opacity=".3"/></svg>
+        <div class="cb-inner cb-inner-lg">
+          <span class="cb-sub">Жизнь кампуса</span>
+          <h3 class="cb-title">Студенческая жизнь</h3>
+          <p class="cb-desc">Насыщенная внеучебная жизнь, клубы по интересам, КВН, студенческие советы.</p>
+        </div>
+      </div>
+      <div class="campus-block fi">
+        <svg class="cp" aria-hidden="true"><line x1="0" y1="50%" x2="40%" y2="50%" stroke="oklch(65% 0.18 22)" stroke-width=".8"/><circle cx="40%" cy="50%" r="4" fill="oklch(65% 0.18 22)" opacity=".7"/><line x1="40%" y1="50%" x2="40%" y2="20%" stroke="oklch(65% 0.18 22)" stroke-width=".8"/><circle cx="40%" cy="20%" r="3" fill="oklch(65% 0.18 22)" opacity=".5"/><line x1="40%" y1="50%" x2="70%" y2="50%" stroke="oklch(65% 0.18 22)" stroke-width=".8"/><circle cx="70%" cy="50%" r="4" fill="oklch(65% 0.18 22)" opacity=".7"/><line x1="70%" y1="50%" x2="70%" y2="75%" stroke="oklch(65% 0.18 22)" stroke-width=".8"/><circle cx="70%" cy="75%" r="3" fill="oklch(65% 0.18 22)" opacity=".5"/><line x1="70%" y1="50%" x2="100%" y2="50%" stroke="oklch(65% 0.18 22)" stroke-width=".8"/></svg>
+        <div class="cb-inner"><span class="cb-sub" style="color:oklch(65% 0.18 22)">Наука и исследования</span><h3 class="cb-title">Лаборатории</h3><p class="cb-desc">Современное оборудование, исследовательские проекты, научные публикации.</p></div>
+      </div>
+      <div class="campus-block fi">
+        <svg class="cp" aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="none"><path d="M0 100 Q50 60 100 100 T200 100 T300 100 T400 100" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.2" opacity=".2"/><path d="M0 120 Q50 80 100 120 T200 120 T300 120 T400 120" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".6" opacity=".1"/></svg>
+        <div class="cb-inner"><span class="cb-sub">Индустриальная практика</span><h3 class="cb-title">Проекты</h3><p class="cb-desc">Практические задачи от индустриальных партнёров уже с первого курса.</p></div>
+      </div>
+      <div class="campus-block fi">
+        <svg class="cp" aria-hidden="true"><circle cx="10%" cy="12%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="30%" cy="12%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="50%" cy="12%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="70%" cy="12%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="90%" cy="12%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="10%" cy="37%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="30%" cy="37%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="50%" cy="37%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="70%" cy="37%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="90%" cy="37%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="10%" cy="62%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="30%" cy="62%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="50%" cy="62%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="70%" cy="62%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/><circle cx="90%" cy="62%" r="2.5" fill="rgba(255,255,255,.7)" opacity=".2"/></svg>
+        <div class="cb-inner"><span class="cb-sub">Спорт и здоровье</span><h3 class="cb-title">Спорт</h3><p class="cb-desc">Спортивные секции, соревнования, современный спортивный комплекс.</p></div>
+      </div>
+      <div class="campus-block fi">
+        <div class="cb-inner"><span class="cb-sub">Карьера и развитие</span><h3 class="cb-title">Развитие</h3><p class="cb-desc">Карьерный центр, стажировки, менторская программа, международный обмен.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PHOTO STRIP ═══ -->
+<section class="photostrip">
+  <div class="top-line" aria-hidden="true"></div>
+  <div class="container ps-header">
+    <span class="sec-label blue fi">/ Студенческая жизнь</span>
+    <p class="ps-sub fi">Реальные студенты. Реальная жизнь.</p>
+  </div>
+  <div class="ps-wrap">
+    <div class="ps-fl" aria-hidden="true"></div>
+    <div class="ps-fr" aria-hidden="true"></div>
+    <div class="ps-track">
+      <div class="ps-item"><img src="images/kai-photo-1.jpg" alt="КВН НЧФ КНИТУ-КАИ" loading="lazy"></div>
+      <div class="ps-item"><img src="images/kai-photo-2.jpg" alt="Студенческий театр КАИ" loading="lazy"></div>
+      <div class="ps-item"><img src="images/kai-photo-3.jpg" alt="Студенческий концерт КАИ" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-1.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-2.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-3.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-1.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-2.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-3.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-1.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-2.jpg" alt="" loading="lazy"></div>
+      <div class="ps-item" aria-hidden="true"><img src="images/kai-photo-3.jpg" alt="" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ADMISSION ═══ -->
+<section id="admission" class="admission section-pad">
+  <div class="top-line" aria-hidden="true"></div>
+  <div class="adm-glow" aria-hidden="true"></div>
+  <div class="container">
+    <div class="adm-hdr">
+      <span class="sec-label blue fi">/ Поступление 2026</span>
+      <h2 class="sec-title fi">Стань частью<br>нового поколения</h2>
+    </div>
+    <div class="adm-grid">
+      <div class="adm-info">
+        <div class="info-row fi"><span class="info-n">01</span><div class="info-b"><p class="info-l">Форма обучения</p><p class="info-v">Очная и заочная</p><p class="info-d">Бюджет и коммерция</p></div><div class="info-dot"></div></div>
+        <div class="info-row fi"><span class="info-n">02</span><div class="info-b"><p class="info-l">Поступление</p><p class="info-v">Через Госуслуги</p><p class="info-d">supcvdo.ru — подача онлайн</p></div><div class="info-dot"></div></div>
+        <div class="info-row fi"><span class="info-n">03</span><div class="info-b"><p class="info-l">Вступительные испытания</p><p class="info-v">ЕГЭ / внутренние экзамены</p><p class="info-d">Математика · Физика · Информатика · Обществознание</p></div><div class="info-dot"></div></div>
+        <div class="info-row fi"><span class="info-n">04</span><div class="info-b"><p class="info-l">Финансирование</p><p class="info-v">Бюджетные места</p><p class="info-d">Государственные контрактные места по направлениям</p></div><div class="info-dot"></div></div>
+      </div>
+      <div class="adm-right fi">
+        <div class="gos-badge">
+          <div class="badge-glow" aria-hidden="true"></div>
+          <span class="badge-lbl">Подача документов</span>
+          <p class="badge-title">Через Госуслуги</p>
+          <p class="badge-desc">Подайте заявление онлайн на portaledu.ru или через платформу приёма.</p>
+          <a href="https://www.gosuslugi.ru" target="_blank" rel="noopener" class="btn btn-primary">Подать заявление</a>
+        </div>
+        <div class="contacts" id="contacts">
+          <div class="contact-row"><span class="contact-l">Адрес</span><span class="contact-v">г. Набережные Челны, ул. Академика Рубаненко, 2</span></div>
+          <div class="contact-row"><span class="contact-l">Телефон</span><span class="contact-v">+7 (8552) 35-10-27</span></div>
+          <div class="contact-row"><span class="contact-l">Email</span><span class="contact-v">nchf@kai.ru</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FINALE ═══ -->
+<section id="finale" class="finale">
+  <div class="finale-tline" aria-hidden="true"></div>
+  <canvas id="cosmosCanvas" aria-hidden="true"></canvas>
+  <div class="finale-nb1" aria-hidden="true"></div>
+  <div class="finale-nb2" aria-hidden="true"></div>
+  <div class="finale-vig" aria-hidden="true"></div>
+  <div class="finale-content fi">
+    <p class="finale-title">Будущее<br><span class="blue">начинается</span><br>здесь.</p>
+    <p class="finale-sub">НЧФ КНИТУ-КАИ</p>
+    <a href="#admission" class="btn btn-primary">Стать частью будущего</a>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <img src="images/kai-logo.svg" alt="КАИ" class="footer-logo">
+    <nav class="footer-nav">
+      <a href="#about">О филиале</a>
+      <a href="#programs">Направления</a>
+      <a href="#admission">Поступление</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <p class="footer-copy">© <span id="year"></span> НЧФ КНИТУ-КАИ</p>
+  </div>
+</footer>
+
+<!-- ═══ CHAT WIDGET ═══ -->
+<div id="chatWidget">
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-hdr">
+      <div class="chat-av"><img src="images/kaiAI.jpg" alt="kAI"></div>
+      <div class="chat-info"><p class="chat-name">kAI</p><p class="chat-desc">Помощник НЧФ КНИТУ-КАИ</p></div>
+      <button class="chat-x" id="chatClose" aria-label="Закрыть">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11 3L3 11M3 3l8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="chat-msgs" id="chatMsgs">
+      <div class="chat-empty" id="chatEmpty">
+        <div class="chat-ei"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M15 2H3a1 1 0 00-1 1v9a1 1 0 001 1h3l3 3 3-3h3a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="oklch(52% 0.22 264)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <p>Задай вопрос о поступлении,<br>программах или жизни в НЧФ</p>
+      </div>
+    </div>
+    <div class="chat-inp-area">
+      <textarea id="chatInput" class="chat-inp" placeholder="Спроси что-нибудь..." rows="1"></textarea>
+      <button class="chat-send" id="chatSend" aria-label="Отправить">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 8L2.5 2.5l2.8 5.5-2.8 5.5L13.5 8z" fill="white"/></svg>
+      </button>
+    </div>
+    <p class="chat-hint">Enter — отправить · Shift+Enter — перенос строки</p>
+  </div>
+  <button class="chat-btn" id="chatToggle" aria-label="Открыть чат с kAI">
+    <img class="ci-open" src="images/kaiAI.jpg" alt="kAI">
+    <svg class="ci-close" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
