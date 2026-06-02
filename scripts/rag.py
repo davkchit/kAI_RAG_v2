@@ -1,6 +1,7 @@
 import os
 
 import httpx
+import numpy as np
 from dotenv import load_dotenv
 from fastembed import SparseTextEmbedding
 from groq import Groq
@@ -17,32 +18,33 @@ COLLECTION_NAME = "university_docs_odl"
 CANDIDATE_LIMIT = 20
 RERANK_TOP_K = 5
 CONTEXT_LIMIT = 3
+ROUTER_MIN_GAP = 0.03
 
 ROUTES = [
     {
         "name": "admission_bo",
         "filters": {"doc_group": "admission", "program_level": "bo"},
-        "keywords": ["поступ", "егэ", "балл", "бакалавр", "магистр", "специалит", "зачисл", "направл", "квот", "вступительн"],
+        "description": "поступление бакалавриат специалитет магистратура ЕГЭ баллы направления квоты зачисление внутренние испытания особая квота",
     },
     {
         "name": "admission_asp",
         "filters": {"doc_group": "admission", "program_level": "asp"},
-        "keywords": ["аспирант", "научно-педагог"],
+        "description": "аспирантура вступительные испытания научно-педагогических кадров специальная дисциплина",
     },
     {
         "name": "admission_spo",
         "filters": {"doc_group": "admission", "program_level": "spo"},
-        "keywords": ["спо", "колледж", "среднее профессиональн"],
+        "description": "СПО среднее профессиональное образование поступление колледж",
     },
     {
         "name": "regulations",
         "filters": {"doc_group": "regulations"},
-        "keywords": ["отчисл", "восстанов", "перевод", "академическ", "приостановл", "прекращен"],
+        "description": "отчисление восстановление перевод академический отпуск образовательные отношения приостановление прекращение порядок оформления",
     },
     {
         "name": "branch",
         "filters": {"doc_scope": "branch"},
-        "keywords": ["нчф", "набережночелн", "филиал", "директор", "общежити", "камаз", "контакт", "адрес", "телефон"],
+        "description": "НЧФ набережночелнинский филиал контакты директор руководство общежитие КАМАЗ партнеры учебно-методический отдел телефон адрес сайт",
     },
 ]
 
@@ -58,28 +60,15 @@ client = QdrantClient(
     check_compatibility=False,
 )
 
-# BM25 only — ~15MB, no neural network
 _bm25 = SparseTextEmbedding("Qdrant/bm25")
+_route_embs_cache: np.ndarray | None = None
 
 
 def _jina_headers() -> dict:
     key = os.getenv("JINA_API_KEY") or JINA_API_KEY
     if not key:
         raise RuntimeError("JINA_API_KEY не задан")
-    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-
-
-def _rerank(question: str, hits: list) -> list:
-    texts = [h.payload.get("document") or h.payload.get("text", "") for h in hits]
-    resp = httpx.post(
-        "https://api.jina.ai/v1/rerank",
-        headers=_jina_headers(),
-        json={"model": "jina-reranker-v2-base-multilingual", "query": question, "documents": texts, "top_n": RERANK_TOP_K},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    results = resp.json()["results"]
-    return [hits[r["index"]] for r in results]
+    return {"Authorization": f"Bearer {key.strip()}", "Content-Type": "application/json"}
 
 
 def _embed_dense(text: str) -> list[float]:
@@ -93,16 +82,59 @@ def _embed_dense(text: str) -> list[float]:
     return resp.json()["data"][0]["embedding"]
 
 
+def _embed_dense_batch(texts: list[str]) -> list[list[float]]:
+    resp = httpx.post(
+        "https://api.jina.ai/v1/embeddings",
+        headers=_jina_headers(),
+        json={"model": JINA_MODEL, "input": texts, "task": "retrieval.query", "dimensions": JINA_DIMS},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return [item["embedding"] for item in resp.json()["data"]]
+
+
 def _embed_sparse(text: str):
     return next(_bm25.embed([text]))
 
 
-def get_routes_for_question(question: str) -> list[dict]:
-    q = question.lower()
-    for route in ROUTES:
-        if any(kw in q for kw in route["keywords"]):
-            return [route]
+def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
+
+
+def _get_route_embs() -> np.ndarray:
+    global _route_embs_cache
+    if _route_embs_cache is None:
+        descriptions = [r["description"] for r in ROUTES]
+        vecs = _embed_dense_batch(descriptions)
+        _route_embs_cache = np.array(vecs)
+    return _route_embs_cache
+
+
+def get_routes_for_question(question: str, q_emb: list[float]) -> list[dict]:
+    route_embs = _get_route_embs()
+    q = np.array(q_emb)
+    sims = sorted(
+        [(_cosine_sim(q, route_embs[i]), i) for i in range(len(ROUTES))],
+        reverse=True,
+    )
+    top_sim, top_idx = sims[0]
+    second_sim = sims[1][0] if len(sims) > 1 else 0.0
+    if top_sim - second_sim >= ROUTER_MIN_GAP:
+        return [ROUTES[top_idx]]
     return []
+
+
+def _rerank(question: str, hits: list) -> list:
+    texts = [h.payload.get("document") or h.payload.get("text", "") for h in hits]
+    resp = httpx.post(
+        "https://api.jina.ai/v1/rerank",
+        headers=_jina_headers(),
+        json={"model": "jina-reranker-v2-base-multilingual", "query": question, "documents": texts, "top_n": RERANK_TOP_K},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    results = resp.json()["results"]
+    return [hits[r["index"]] for r in results]
 
 
 def build_filter(criteria: dict | None) -> models.Filter | None:
@@ -120,23 +152,20 @@ def build_hit_key(hit):
     return (p.get("source"), p.get("page"), p.get("chunk_index"))
 
 
-def run_hybrid_query(search_text: str, collection_name: str, limit: int, route_filter=None) -> list:
-    dense_vec = _embed_dense(search_text)
-    sparse_vec = _embed_sparse(search_text)
-
+def run_hybrid_query(q_dense: list[float], q_sparse, collection_name: str, limit: int, route_filter=None) -> list:
     response = client.query_points(
         collection_name=collection_name,
         prefetch=[
             models.Prefetch(
-                query=dense_vec,
+                query=q_dense,
                 using=DENSE_VECTOR_NAME,
                 filter=route_filter,
                 limit=limit,
             ),
             models.Prefetch(
                 query=models.SparseVector(
-                    indices=sparse_vec.indices.tolist(),
-                    values=sparse_vec.values.tolist(),
+                    indices=q_sparse.indices.tolist(),
+                    values=q_sparse.values.tolist(),
                 ),
                 using=SPARSE_VECTOR_NAME,
                 filter=route_filter,
@@ -151,18 +180,22 @@ def run_hybrid_query(search_text: str, collection_name: str, limit: int, route_f
 
 
 def hybrid_search(question: str, collection_name: str) -> list:
-    routes = get_routes_for_question(question)
+    # Compute vectors once — reused for both routing and search
+    q_dense = _embed_dense(question)
+    q_sparse = _embed_sparse(question)
+
+    routes = get_routes_for_question(question, q_dense)
     seen: dict = {}
 
     if routes:
         for route in routes:
-            for hit in run_hybrid_query(question, collection_name, CANDIDATE_LIMIT, build_filter(route["filters"])):
+            for hit in run_hybrid_query(q_dense, q_sparse, collection_name, CANDIDATE_LIMIT, build_filter(route["filters"])):
                 key = build_hit_key(hit)
                 if key not in seen or (hit.score or 0) > (seen[key].score or 0):
                     seen[key] = hit
 
     if not routes or len(seen) < CONTEXT_LIMIT:
-        for hit in run_hybrid_query(question, collection_name, CANDIDATE_LIMIT):
+        for hit in run_hybrid_query(q_dense, q_sparse, collection_name, CANDIDATE_LIMIT):
             key = build_hit_key(hit)
             if key not in seen:
                 seen[key] = hit
@@ -170,8 +203,7 @@ def hybrid_search(question: str, collection_name: str) -> list:
     candidates = sorted(seen.values(), key=lambda h: h.score or 0.0, reverse=True)[:CANDIDATE_LIMIT]
     if not candidates:
         return []
-    reranked = _rerank(question, candidates)
-    return reranked[:CONTEXT_LIMIT]
+    return _rerank(question, candidates)[:CONTEXT_LIMIT]
 
 
 def ask_question(question: str) -> str:
@@ -240,6 +272,6 @@ def ask_question(question: str) -> str:
 
 if __name__ == "__main__":
     try:
-        print(ask_question("куда поступить в КАИ"))
+        print(ask_question("куда поступить в КАИ из Казани"))
     except Exception as e:
         print(f"Ошибка: {e}")
