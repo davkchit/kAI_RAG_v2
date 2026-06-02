@@ -1,8 +1,6 @@
 import os
 
-import numpy as np
 from dotenv import load_dotenv
-from fastembed import TextEmbedding
 from groq import Groq
 from qdrant_client import QdrantClient, models
 
@@ -14,33 +12,33 @@ COLLECTION_NAME = "university_docs_odl"
 
 CANDIDATE_LIMIT = 20
 CONTEXT_LIMIT = 3
-ROUTER_MIN_GAP = 0.03
 
+# Keyword router — no extra model, zero extra RAM
 ROUTES = [
     {
         "name": "admission_bo",
         "filters": {"doc_group": "admission", "program_level": "bo"},
-        "description": "поступление бакалавриат специалитет магистратура ЕГЭ баллы направления квоты зачисление внутренние испытания особая квота",
+        "keywords": ["поступ", "егэ", "балл", "бакалавр", "магистр", "специалит", "зачисл", "направл", "квот", "вступительн"],
     },
     {
         "name": "admission_asp",
         "filters": {"doc_group": "admission", "program_level": "asp"},
-        "description": "аспирантура вступительные испытания научно-педагогических кадров специальная дисциплина",
+        "keywords": ["аспирант", "аспирантур", "научно-педагог", "кадров"],
     },
     {
         "name": "admission_spo",
         "filters": {"doc_group": "admission", "program_level": "spo"},
-        "description": "СПО среднее профессиональное образование поступление колледж",
+        "keywords": ["спо", "колледж", "среднее профессиональн"],
     },
     {
         "name": "regulations",
         "filters": {"doc_group": "regulations"},
-        "description": "отчисление восстановление перевод академический отпуск образовательные отношения приостановление прекращение порядок оформления",
+        "keywords": ["отчисл", "восстанов", "перевод", "академическ", "приостановл", "прекращен", "образовательн"],
     },
     {
         "name": "branch",
         "filters": {"doc_scope": "branch"},
-        "description": "НЧФ набережночелнинский филиал контакты директор руководство общежитие КАМАЗ партнеры учебно-методический отдел телефон адрес сайт",
+        "keywords": ["нчф", "набережночелн", "филиал", "директор", "общежити", "камаз", "контакт", "адрес", "телефон"],
     },
 ]
 
@@ -60,28 +58,12 @@ client.set_sparse_model(SPARSE_MODEL)
 DENSE_VECTOR_NAME = next(iter(client.get_fastembed_vector_params().keys()))
 SPARSE_VECTOR_NAME = next(iter(client.get_fastembed_sparse_vector_params().keys()))
 
-# Reuse the same TextEmbedding instance that fastembed caches internally
-_route_embedder = TextEmbedding(model_name=DENSE_MODEL)
-_route_embs = np.array([
-    next(_route_embedder.embed([r["description"]]))
-    for r in ROUTES
-])
-
-
-def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
-
 
 def get_routes_for_question(question: str) -> list[dict]:
-    q_emb = next(_route_embedder.embed([question]))
-    sims = sorted(
-        [(_cosine_sim(q_emb, r_emb), i) for i, r_emb in enumerate(_route_embs)],
-        reverse=True,
-    )
-    top_sim, top_idx = sims[0]
-    second_sim = sims[1][0] if len(sims) > 1 else 0.0
-    if top_sim - second_sim >= ROUTER_MIN_GAP:
-        return [ROUTES[top_idx]]
+    q = question.lower()
+    for route in ROUTES:
+        if any(kw in q for kw in route["keywords"]):
+            return [route]
     return []
 
 
@@ -90,8 +72,8 @@ def build_filter(criteria: dict | None) -> models.Filter | None:
         return None
     return models.Filter(
         must=[
-            models.FieldCondition(key=key, match=models.MatchValue(value=value))
-            for key, value in criteria.items()
+            models.FieldCondition(key=k, match=models.MatchValue(value=v))
+            for k, v in criteria.items()
         ]
     )
 
@@ -99,8 +81,8 @@ def build_filter(criteria: dict | None) -> models.Filter | None:
 def build_hit_key(hit):
     if hit.id is not None:
         return hit.id
-    payload = hit.payload or {}
-    return (payload.get("source"), payload.get("page"), payload.get("chunk_index"))
+    p = hit.payload or {}
+    return (p.get("source"), p.get("page"), p.get("chunk_index"))
 
 
 def run_hybrid_query(search_text: str, collection_name: str, limit: int, route_filter=None) -> list:
@@ -133,13 +115,7 @@ def hybrid_search(question: str, collection_name: str) -> list:
 
     if routes:
         for route in routes:
-            hits = run_hybrid_query(
-                search_text=question,
-                collection_name=collection_name,
-                limit=CANDIDATE_LIMIT,
-                route_filter=build_filter(route["filters"]),
-            )
-            for hit in hits:
+            for hit in run_hybrid_query(question, collection_name, CANDIDATE_LIMIT, build_filter(route["filters"])):
                 key = build_hit_key(hit)
                 if key not in seen or (hit.score or 0) > (seen[key].score or 0):
                     seen[key] = hit
