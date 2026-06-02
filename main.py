@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 
 import uvicorn
@@ -6,7 +7,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+log = logging.getLogger(__name__)
+
 from api import app
+
+
+async def _run_bot() -> None:
+    if not os.getenv("TELEGRAM_BOT_TOKEN"):
+        return
+    from bot import dp, bot
+    while True:
+        try:
+            await dp.start_polling(bot)
+        except Exception as e:
+            log.error("Bot polling crashed: %s — restarting in 15s", e)
+            await asyncio.sleep(15)
 
 
 async def main() -> None:
@@ -17,13 +32,11 @@ async def main() -> None:
         log_level="info",
     )
     server = uvicorn.Server(config)
-    tasks = [server.serve()]
-
-    if os.getenv("TELEGRAM_BOT_TOKEN"):
-        from bot import dp, bot
-        tasks.append(dp.start_polling(bot))
-
-    await asyncio.gather(*tasks)
+    await asyncio.gather(
+        server.serve(),
+        _run_bot(),
+        return_exceptions=True,
+    )
 
 
 if __name__ == "__main__":
