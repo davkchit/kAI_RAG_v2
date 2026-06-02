@@ -1,4 +1,4 @@
-# Stage 1: install deps (needs build-essential for some packages)
+# Stage 1: install deps
 FROM python:3.11-slim AS builder
 
 WORKDIR /build
@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# CPU-only torch BEFORE sentence-transformers to prevent CUDA 2GB pull
+# CPU wheel index as PRIMARY so torch (and any transitive dep) never pulls CUDA
 RUN pip install --no-cache-dir --prefix=/install \
-    torch --index-url https://download.pytorch.org/whl/cpu
-
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple/ \
+    torch -r requirements.txt
 
 # Stage 2: lean runtime image (no build tools)
 FROM python:3.11-slim
