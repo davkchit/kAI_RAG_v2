@@ -1,19 +1,23 @@
 import os
 
+import httpx
 from dotenv import load_dotenv
+from fastembed import SparseTextEmbedding
 from groq import Groq
 from qdrant_client import QdrantClient, models
 
 load_dotenv()
 
-DENSE_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-SPARSE_MODEL = "Qdrant/bm25"
+JINA_MODEL = "jina-embeddings-v3"
+JINA_DIMS = 1024
+DENSE_VECTOR_NAME = "dense"
+SPARSE_VECTOR_NAME = "sparse"
 COLLECTION_NAME = "university_docs_odl"
 
 CANDIDATE_LIMIT = 20
+RERANK_TOP_K = 5
 CONTEXT_LIMIT = 3
 
-# Keyword router — no extra model, zero extra RAM
 ROUTES = [
     {
         "name": "admission_bo",
@@ -23,7 +27,7 @@ ROUTES = [
     {
         "name": "admission_asp",
         "filters": {"doc_group": "admission", "program_level": "asp"},
-        "keywords": ["аспирант", "аспирантур", "научно-педагог", "кадров"],
+        "keywords": ["аспирант", "научно-педагог"],
     },
     {
         "name": "admission_spo",
@@ -33,7 +37,7 @@ ROUTES = [
     {
         "name": "regulations",
         "filters": {"doc_group": "regulations"},
-        "keywords": ["отчисл", "восстанов", "перевод", "академическ", "приостановл", "прекращен", "образовательн"],
+        "keywords": ["отчисл", "восстанов", "перевод", "академическ", "приостановл", "прекращен"],
     },
     {
         "name": "branch",
@@ -43,8 +47,9 @@ ROUTES = [
 ]
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client_groq = Groq(api_key=GROQ_API_KEY)
+JINA_API_KEY = os.getenv("JINA_API_KEY")
 
+client_groq = Groq(api_key=GROQ_API_KEY)
 client = QdrantClient(
     url=os.getenv("QDRANT_URL", "http://localhost:6333"),
     api_key=os.getenv("QDRANT_API_KEY") or None,
@@ -52,11 +57,37 @@ client = QdrantClient(
     trust_env=False,
     check_compatibility=False,
 )
-client.set_model(DENSE_MODEL)
-client.set_sparse_model(SPARSE_MODEL)
 
-DENSE_VECTOR_NAME = next(iter(client.get_fastembed_vector_params().keys()))
-SPARSE_VECTOR_NAME = next(iter(client.get_fastembed_sparse_vector_params().keys()))
+# BM25 only — ~15MB, no neural network
+_bm25 = SparseTextEmbedding("Qdrant/bm25")
+
+
+def _rerank(question: str, hits: list) -> list:
+    texts = [h.payload.get("document") or h.payload.get("text", "") for h in hits]
+    resp = httpx.post(
+        "https://api.jina.ai/v1/rerank",
+        headers={"Authorization": f"Bearer {JINA_API_KEY}", "Content-Type": "application/json"},
+        json={"model": "jina-reranker-v2-base-multilingual", "query": question, "documents": texts, "top_n": RERANK_TOP_K},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    results = resp.json()["results"]
+    return [hits[r["index"]] for r in results]
+
+
+def _embed_dense(text: str) -> list[float]:
+    resp = httpx.post(
+        "https://api.jina.ai/v1/embeddings",
+        headers={"Authorization": f"Bearer {JINA_API_KEY}", "Content-Type": "application/json"},
+        json={"model": JINA_MODEL, "input": [text], "task": "retrieval.query", "dimensions": JINA_DIMS},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["data"][0]["embedding"]
+
+
+def _embed_sparse(text: str):
+    return next(_bm25.embed([text]))
 
 
 def get_routes_for_question(question: str) -> list[dict]:
@@ -71,10 +102,7 @@ def build_filter(criteria: dict | None) -> models.Filter | None:
     if not criteria:
         return None
     return models.Filter(
-        must=[
-            models.FieldCondition(key=k, match=models.MatchValue(value=v))
-            for k, v in criteria.items()
-        ]
+        must=[models.FieldCondition(key=k, match=models.MatchValue(value=v)) for k, v in criteria.items()]
     )
 
 
@@ -86,17 +114,23 @@ def build_hit_key(hit):
 
 
 def run_hybrid_query(search_text: str, collection_name: str, limit: int, route_filter=None) -> list:
+    dense_vec = _embed_dense(search_text)
+    sparse_vec = _embed_sparse(search_text)
+
     response = client.query_points(
         collection_name=collection_name,
         prefetch=[
             models.Prefetch(
-                query=models.Document(text=search_text, model=DENSE_MODEL),
+                query=dense_vec,
                 using=DENSE_VECTOR_NAME,
                 filter=route_filter,
                 limit=limit,
             ),
             models.Prefetch(
-                query=models.Document(text=search_text, model=SPARSE_MODEL),
+                query=models.SparseVector(
+                    indices=sparse_vec.indices.tolist(),
+                    values=sparse_vec.values.tolist(),
+                ),
                 using=SPARSE_VECTOR_NAME,
                 filter=route_filter,
                 limit=limit,
@@ -126,7 +160,11 @@ def hybrid_search(question: str, collection_name: str) -> list:
             if key not in seen:
                 seen[key] = hit
 
-    return sorted(seen.values(), key=lambda h: h.score or 0.0, reverse=True)[:CONTEXT_LIMIT]
+    candidates = sorted(seen.values(), key=lambda h: h.score or 0.0, reverse=True)[:CANDIDATE_LIMIT]
+    if not candidates:
+        return []
+    reranked = _rerank(question, candidates)
+    return reranked[:CONTEXT_LIMIT]
 
 
 def ask_question(question: str) -> str:
@@ -140,7 +178,7 @@ def ask_question(question: str) -> str:
 
     context_parts = []
     for hit in search_results:
-        source = hit.payload.get("source", "Неизвестный источник")
+        source = hit.payload.get("source", "?")
         page = hit.payload.get("page")
         content = hit.payload.get("document") or hit.payload.get("text", "")
         if not content:
@@ -195,6 +233,6 @@ def ask_question(question: str) -> str:
 
 if __name__ == "__main__":
     try:
-        print(ask_question("привет"))
+        print(ask_question("куда поступить в КАИ"))
     except Exception as e:
-        print(f"Произошла ошибка: {e}")
+        print(f"Ошибка: {e}")
