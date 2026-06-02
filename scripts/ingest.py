@@ -1,7 +1,17 @@
+import hashlib
 import json
+import locale
 import os
 import shutil
+import uuid
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
+
+# opendataloader runner uses locale.getpreferredencoding() for subprocess stdout;
+# on Windows this returns cp1251 which can't decode UTF-8 JAR output (e.g. Cyrillic paths)
+locale.getpreferredencoding = lambda *_: "utf-8"
 
 import opendataloader_pdf
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -24,14 +34,15 @@ FILTERABLE_FIELDS = (
 )
 
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=600,
-    chunk_overlap=120,
+    chunk_size=800,
+    chunk_overlap=150,
     separators=["\n\n", "\n", ". ", " "],
 )
 
 client = QdrantClient(
-    url="http://localhost:6333",
-    timeout=30,
+    url=os.getenv("QDRANT_URL", "http://localhost:6333"),
+    api_key=os.getenv("QDRANT_API_KEY") or None,
+    timeout=60,
     trust_env=False,
     check_compatibility=False,
 )
@@ -226,19 +237,22 @@ def extract_pages_from_json(json_path: Path):
     return result
 
 
-def upload_batches(documents, metadatas):
+def make_chunk_id(source: str, page: int, chunk_index: int) -> str:
+    key = f"{source}:{page}:{chunk_index}"
+    return str(uuid.UUID(hashlib.md5(key.encode()).hexdigest()))
+
+
+def upload_batches(documents, metadatas, ids):
     total = len(documents)
 
     for start in range(0, total, UPLOAD_BATCH_SIZE):
         end = start + UPLOAD_BATCH_SIZE
-        batch_documents = documents[start:end]
-        batch_metadatas = metadatas[start:end]
-
         print(f"Загружаю чанки {start + 1}-{min(end, total)} из {total}...")
         client.add(
             collection_name=COLLECTION_NAME,
-            documents=batch_documents,
-            metadata=batch_metadatas,
+            documents=documents[start:end],
+            metadata=metadatas[start:end],
+            ids=ids[start:end],
             batch_size=32,
         )
 
@@ -253,7 +267,10 @@ def main():
     setup_collection()
 
     if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR)
+        # shutil.rmtree fails on Windows with long Cyrillic paths (WinError 145);
+        # use system rmdir which handles them correctly
+        import subprocess as _sp
+        _sp.run(["cmd", "/c", f"rmdir /s /q {OUTPUT_DIR}"], check=False)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     os.environ.setdefault("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF-8")
@@ -267,6 +284,7 @@ def main():
 
     documents = []
     metadatas = []
+    ids = []
 
     for pdf in pdf_files:
         json_path = OUTPUT_DIR / f"{pdf.stem}.json"
@@ -298,13 +316,14 @@ def main():
                         **doc_profile,
                     }
                 )
+                ids.append(make_chunk_id(pdf.name, page_number, i))
 
     if not documents:
         print("Не найдено документов для индексации.")
         return
 
     print(f"Подготовлено {len(documents)} чанков для индексации.")
-    upload_batches(documents, metadatas)
+    upload_batches(documents, metadatas, ids)
     print("Готово! Данные проиндексированы через OpenDataLoader.")
 
 

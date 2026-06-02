@@ -1,9 +1,10 @@
 .git
-.gitignore
-.vscode
-__pycache__/
-*.pyc
 .env
+__pycache__
+*.pyc
+*.pyo
 odl_output/
-data/
-*.pdf
+storage/
+nchf-kai/
+.vscode
+*.md

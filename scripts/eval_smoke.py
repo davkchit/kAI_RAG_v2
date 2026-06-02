@@ -25,7 +25,7 @@ def main():
 
     for i, case in enumerate(cases, start=1):
         question = case["question"]
-        hits = hybrid_search(question, COLLECTION_NAME, limit=3)
+        hits = hybrid_search(question, COLLECTION_NAME)
 
         top_source = ""
         if hits:

@@ -6,3 +6,6 @@ data/*
 odl_output/
 odl_probe/
 *.pyc
+nchf-kai/
+storage/
+.qdrant-initialized
