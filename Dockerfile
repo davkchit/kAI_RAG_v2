@@ -18,7 +18,7 @@ COPY --from=builder /install /usr/local
 # Pre-bake ML models (no reranker = no PyTorch = ~800MB image)
 RUN python -c "\
 from fastembed import TextEmbedding, SparseTextEmbedding; \
-TextEmbedding('intfloat/multilingual-e5-small'); \
+TextEmbedding('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'); \
 SparseTextEmbedding('Qdrant/bm25')"
 
 COPY . .
