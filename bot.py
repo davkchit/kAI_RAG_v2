@@ -8,8 +8,6 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from dotenv import load_dotenv
 
-from scripts.rag import ask_question
-
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -19,6 +17,16 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 dp = Dispatcher()
 bot: Bot | None = Bot(token=TOKEN) if TOKEN else None
+
+_ask_question = None
+
+
+def _get_ask():
+    global _ask_question
+    if _ask_question is None:
+        from scripts.rag import ask_question
+        _ask_question = ask_question
+    return _ask_question
 
 
 def clean_answer(text: str) -> str:
@@ -40,7 +48,7 @@ async def on_message(message: Message) -> None:
 
     await bot.send_chat_action(message.chat.id, "typing")
 
-    answer = await asyncio.to_thread(ask_question, question)
+    answer = await asyncio.to_thread(_get_ask(), question)
     await message.answer(clean_answer(answer), parse_mode=None)
 
 
