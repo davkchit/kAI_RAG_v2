@@ -8,7 +8,7 @@ from qdrant_client import QdrantClient, models
 
 load_dotenv()
 
-DENSE_MODEL = "intfloat/multilingual-e5-large"
+DENSE_MODEL = "intfloat/multilingual-e5-small"
 SPARSE_MODEL = "Qdrant/bm25"
 COLLECTION_NAME = "university_docs_odl"
 
