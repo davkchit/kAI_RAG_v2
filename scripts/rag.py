@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from fastembed import TextEmbedding
 from groq import Groq
 from qdrant_client import QdrantClient, models
-from sentence_transformers import CrossEncoder
 
 load_dotenv()
 
@@ -13,14 +12,10 @@ DENSE_MODEL = "intfloat/multilingual-e5-large"
 SPARSE_MODEL = "Qdrant/bm25"
 COLLECTION_NAME = "university_docs_odl"
 
-CANDIDATE_LIMIT = 40
-RERANK_TOP_K = 5
+CANDIDATE_LIMIT = 20
 CONTEXT_LIMIT = 3
-# Gap-based routing: выбираем маршрут только если он явно лидирует над вторым.
-# Абсолютный порог не работает — e5-large даёт 0.78-0.86 даже для несвязанных текстов.
 ROUTER_MIN_GAP = 0.03
 
-# Добавить новый тип документа = одна запись в ROUTES, код не трогаем
 ROUTES = [
     {
         "name": "admission_bo",
@@ -65,15 +60,12 @@ client.set_sparse_model(SPARSE_MODEL)
 DENSE_VECTOR_NAME = next(iter(client.get_fastembed_vector_params().keys()))
 SPARSE_VECTOR_NAME = next(iter(client.get_fastembed_sparse_vector_params().keys()))
 
-# Semantic router: отдельный embedder + предвычисленные эмбеддинги маршрутов
+# Reuse the same TextEmbedding instance that fastembed caches internally
 _route_embedder = TextEmbedding(model_name=DENSE_MODEL)
 _route_embs = np.array([
     next(_route_embedder.embed([r["description"]]))
     for r in ROUTES
 ])
-
-# Cross-encoder reranker (мультиязычный, поддерживает русский, бесплатный)
-_reranker = CrossEncoder("BAAI/bge-reranker-v2-m3")
 
 
 def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
@@ -90,7 +82,7 @@ def get_routes_for_question(question: str) -> list[dict]:
     second_sim = sims[1][0] if len(sims) > 1 else 0.0
     if top_sim - second_sim >= ROUTER_MIN_GAP:
         return [ROUTES[top_idx]]
-    return []  # неуверен → global fallback + reranker разберётся
+    return []
 
 
 def build_filter(criteria: dict | None) -> models.Filter | None:
@@ -152,25 +144,13 @@ def hybrid_search(question: str, collection_name: str) -> list:
                 if key not in seen or (hit.score or 0) > (seen[key].score or 0):
                     seen[key] = hit
 
-    # Глобальный fallback: если роутер не уверен или кандидатов мало
-    if not routes or len(seen) < RERANK_TOP_K:
+    if not routes or len(seen) < CONTEXT_LIMIT:
         for hit in run_hybrid_query(question, collection_name, CANDIDATE_LIMIT):
             key = build_hit_key(hit)
             if key not in seen:
                 seen[key] = hit
 
-    candidates = sorted(seen.values(), key=lambda h: h.score or 0.0, reverse=True)[:CANDIDATE_LIMIT]
-
-    if not candidates:
-        return []
-
-    texts = [
-        hit.payload.get("document") or hit.payload.get("text", "")
-        for hit in candidates
-    ]
-    scores = _reranker.predict([[question, t] for t in texts])
-    ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
-    return [hit for hit, _ in ranked[:RERANK_TOP_K]]
+    return sorted(seen.values(), key=lambda h: h.score or 0.0, reverse=True)[:CONTEXT_LIMIT]
 
 
 def ask_question(question: str) -> str:
@@ -183,14 +163,12 @@ def ask_question(question: str) -> str:
         return "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
 
     context_parts = []
-    for hit in search_results[:CONTEXT_LIMIT]:
+    for hit in search_results:
         source = hit.payload.get("source", "Неизвестный источник")
         page = hit.payload.get("page")
         content = hit.payload.get("document") or hit.payload.get("text", "")
-
         if not content:
             continue
-
         if page:
             context_parts.append(f"--- ИСТОЧНИК: {source}, стр. {page} ---\n{content}")
         else:
