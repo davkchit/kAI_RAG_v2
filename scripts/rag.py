@@ -62,11 +62,18 @@ client = QdrantClient(
 _bm25 = SparseTextEmbedding("Qdrant/bm25")
 
 
+def _jina_headers() -> dict:
+    key = os.getenv("JINA_API_KEY") or JINA_API_KEY
+    if not key:
+        raise RuntimeError("JINA_API_KEY не задан")
+    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+
+
 def _rerank(question: str, hits: list) -> list:
     texts = [h.payload.get("document") or h.payload.get("text", "") for h in hits]
     resp = httpx.post(
         "https://api.jina.ai/v1/rerank",
-        headers={"Authorization": f"Bearer {JINA_API_KEY}", "Content-Type": "application/json"},
+        headers=_jina_headers(),
         json={"model": "jina-reranker-v2-base-multilingual", "query": question, "documents": texts, "top_n": RERANK_TOP_K},
         timeout=30,
     )
@@ -78,7 +85,7 @@ def _rerank(question: str, hits: list) -> list:
 def _embed_dense(text: str) -> list[float]:
     resp = httpx.post(
         "https://api.jina.ai/v1/embeddings",
-        headers={"Authorization": f"Bearer {JINA_API_KEY}", "Content-Type": "application/json"},
+        headers=_jina_headers(),
         json={"model": JINA_MODEL, "input": [text], "task": "retrieval.query", "dimensions": JINA_DIMS},
         timeout=30,
     )
