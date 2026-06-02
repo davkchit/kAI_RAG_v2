@@ -42,7 +42,7 @@ splitter = RecursiveCharacterTextSplitter(
 client = QdrantClient(
     url=os.getenv("QDRANT_URL", "http://localhost:6333"),
     api_key=os.getenv("QDRANT_API_KEY") or None,
-    timeout=60,
+    timeout=120,
     trust_env=False,
     check_compatibility=False,
 )
