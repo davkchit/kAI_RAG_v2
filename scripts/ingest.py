@@ -140,7 +140,7 @@ def infer_document_profile(pdf_name, preview_text):
     combined = f"{lowered}\n{preview_text}"
     profile = {"doc_group": "other", "doc_type": "reference", "doc_scope": "university", "program_level": "generic", "doc_title": pdf_name}
 
-    if any(k in combined for k in ("набережночелнинский филиал", "нчф", "филиал книту-каи", "university.pdf")):
+    if any(k in combined for k in ("набережночелнинский филиал", "нчф", "филиал книту-каи", "university.pdf", "nchf")):
         profile.update({"doc_group": "branch", "doc_type": "overview", "doc_scope": "branch", "program_level": "branch"})
         return profile
 
@@ -210,48 +210,75 @@ def extract_pages_from_json(json_path):
     return result
 
 
+def extract_pages_from_md(md_path: Path) -> list[tuple[int, str]]:
+    import re
+    text = md_path.read_text(encoding="utf-8")
+    sections = re.split(r'\n(?=#{1,3} )', text)
+    return [(i + 1, s.strip()) for i, s in enumerate(sections) if s.strip()]
+
+
 def main():
     if not JINA_API_KEY:
         raise RuntimeError("JINA_API_KEY не задан в .env")
 
     pdf_files = sorted(DATA_DIR.glob("*.pdf"))
-    if not pdf_files:
-        print("В папке data нет PDF-файлов.")
+    md_files  = sorted(DATA_DIR.glob("*.md"))
+
+    if not pdf_files and not md_files:
+        print("В папке data нет PDF или MD файлов.")
         return
 
     setup_collection()
 
-    if OUTPUT_DIR.exists():
-        import subprocess
-        subprocess.run(["cmd", "/c", f"rmdir /s /q {OUTPUT_DIR}"], check=False)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    os.environ.setdefault("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF-8")
-    opendataloader_pdf.convert(
-        input_path=[str(p) for p in pdf_files],
-        output_dir=str(OUTPUT_DIR),
-        format="json,markdown",
-        use_struct_tree=True,
-    )
-
     documents, metadatas, ids = [], [], []
-    for pdf in pdf_files:
-        json_path = OUTPUT_DIR / f"{pdf.stem}.json"
-        if not json_path.exists():
-            print(f"Нет JSON для {pdf.name}")
-            continue
-        pages = extract_pages_from_json(json_path)
+
+    # ── PDF files ──────────────────────────────────────────────────────────
+    if pdf_files:
+        if OUTPUT_DIR.exists():
+            import subprocess
+            subprocess.run(["cmd", "/c", f"rmdir /s /q {OUTPUT_DIR}"], check=False)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+        os.environ.setdefault("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF-8")
+        opendataloader_pdf.convert(
+            input_path=[str(p) for p in pdf_files],
+            output_dir=str(OUTPUT_DIR),
+            format="json,markdown",
+            use_struct_tree=True,
+        )
+
+        for pdf in pdf_files:
+            json_path = OUTPUT_DIR / f"{pdf.stem}.json"
+            if not json_path.exists():
+                print(f"Нет JSON для {pdf.name}")
+                continue
+            pages = extract_pages_from_json(json_path)
+            preview = build_preview_text(pages)
+            profile = infer_document_profile(pdf.name, preview)
+            print(f"Обработан (PDF): {pdf.name}")
+            for page_number, page_text in pages:
+                for i, chunk in enumerate(splitter.split_text(page_text)):
+                    chunk = chunk.strip()
+                    if not chunk:
+                        continue
+                    documents.append(chunk)
+                    metadatas.append({"source": pdf.name, "page": page_number, "chunk_index": i, "parser": "opendataloader", **profile})
+                    ids.append(make_chunk_id(pdf.name, page_number, i))
+
+    # ── Markdown files ─────────────────────────────────────────────────────
+    for md in md_files:
+        pages = extract_pages_from_md(md)
         preview = build_preview_text(pages)
-        profile = infer_document_profile(pdf.name, preview)
-        print(f"Обработан: {pdf.name}")
+        profile = infer_document_profile(md.name, preview)
+        print(f"Обработан (MD): {md.name}")
         for page_number, page_text in pages:
             for i, chunk in enumerate(splitter.split_text(page_text)):
                 chunk = chunk.strip()
                 if not chunk:
                     continue
                 documents.append(chunk)
-                metadatas.append({"source": pdf.name, "page": page_number, "chunk_index": i, "parser": "opendataloader", **profile})
-                ids.append(make_chunk_id(pdf.name, page_number, i))
+                metadatas.append({"source": md.name, "page": page_number, "chunk_index": i, "parser": "markdown", **profile})
+                ids.append(make_chunk_id(md.name, page_number, i))
 
     if not documents:
         print("Нет документов для индексации.")
