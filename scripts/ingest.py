@@ -2,6 +2,7 @@ import hashlib
 import json
 import locale
 import os
+import sys
 import uuid
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 locale.getpreferredencoding = lambda *_: "utf-8"
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import httpx
 import opendataloader_pdf
@@ -147,7 +150,7 @@ def infer_document_profile(pdf_name, preview_text):
     combined = f"{lowered}\n{preview_text}"
     profile = {"doc_group": "other", "doc_type": "reference", "doc_scope": "university", "program_level": "generic", "doc_title": pdf_name}
 
-    if any(k in combined for k in ("набережночелнинский филиал", "нчф", "филиал книту-каи", "university.pdf", "nchf")):
+    if any(k in combined for k in ("набережночелнинский филиал", "нчф", "филиал книту-каи", "university.pdf", "nchf", "nabereghnochelninskogo", "filiala_knitu")):
         profile.update({"doc_group": "branch", "doc_type": "overview", "doc_scope": "branch", "program_level": "branch"})
         return profile
 
@@ -246,6 +249,7 @@ def main():
             subprocess.run(["cmd", "/c", f"rmdir /s /q {OUTPUT_DIR}"], check=False)
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+        os.environ["PYTHONIOENCODING"] = "utf-8"
         os.environ.setdefault("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF-8")
         opendataloader_pdf.convert(
             input_path=[str(p) for p in pdf_files],
@@ -264,7 +268,7 @@ def main():
             profile = infer_document_profile(pdf.name, preview)
             print(f"Обработан (PDF): {pdf.name}")
             _splitter = splitter_legal if profile["doc_group"] in ("admission", "regulations") else splitter
-        for page_number, page_text in pages:
+            for page_number, page_text in pages:
                 for i, chunk in enumerate(_splitter.split_text(page_text)):
                     chunk = chunk.strip()
                     if not chunk:
