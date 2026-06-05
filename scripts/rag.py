@@ -1,5 +1,7 @@
+import json
 import os
 import random
+from typing import Generator
 
 import httpx
 import numpy as np
@@ -20,6 +22,7 @@ CANDIDATE_LIMIT = 20
 RERANK_TOP_K = 5
 CONTEXT_LIMIT = 3
 ROUTER_MIN_GAP = 0.03
+CONFIDENCE_THRESHOLD = 0.25  # reranker score below this → "нет информации"
 
 ROUTES = [
     {
@@ -63,6 +66,41 @@ client = QdrantClient(
 
 _bm25 = SparseTextEmbedding("Qdrant/bm25")
 _route_embs_cache: np.ndarray | None = None
+
+_SYSTEM_PROMPT = """ты — kAI, помощник нчф книту каи.
+правила:
+
+- если пользователь пишет /start — ответь: Давай же начнем наше общение! Я всегда на связи, спрашивай 💙
+- отвечай только на основе context.
+- если ответа в context нет — напиши: "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+- не начинай ответы с приветствий и не представляйся.
+- не говори "согласно документам", "в тексте указано" и т.п.
+- не придумывай фактов.
+- никогда не подменяй похожие, но разные роли и места. Ректор КНИТУ-КАИ (главный вуз, Казань) и директор НЧФ (филиал, Набережные Челны) — разные люди. НЧФ и другие филиалы (Альметьевск и др.) — разные организации. Если в context есть информация о похожей, но другой роли/организации — скажи "нет информации", не подменяй.
+- если context содержит косвенное упоминание (например, слово "военкомат"), не делай вывод о наличии объекта (например, "военная кафедра"). Только прямые факты.
+- если вопрос про инфраструктуру НЧФ (аудитории, кабинеты, корпуса, расписание, этажи) — отвечай только если в context есть прямая информация именно об этом в НЧФ. Не собирай номера аудиторий или кабинетов из документов о вступительных испытаниях или других контекстов — там могут быть адреса и номера главного КАИ в Казани, а не НЧФ.
+- если ответ найден, в конце ответа на новой строке укажи только один источник в формате [src:<source>;p:<page>]
+- используй только источник, который уже есть в context
+- не придумывай источник
+- если ответа в context нет, источник не пиши
+
+стиль:
+- отвечай коротко, ясно и дружелюбно.
+
+предложение помощи:
+- не предлагай помощь в каждом ответе.
+- иногда можно добавить короткую фразу с предложением помощи (примерно в 1 из 4 ответов).
+- если добавляешь предложение помощи — поставь 💙 в самом конце.
+- если предложения помощи нет — 💙 использовать нельзя.
+"""
+
+_GREETINGS = {"привет", "здравствуй", "здравствуйте", "хай", "добрый день", "добрый вечер", "доброе утро", "салют", "хэй", "hey", "hi", "hello"}
+
+_CLOSINGS = [
+    "Пиши, если будут ещё вопросы 💙",
+    "Если что-то непонятно — спрашивай 💙",
+    "Обращайся, всегда помогу 💙",
+]
 
 
 def _jina_headers() -> dict:
@@ -135,7 +173,12 @@ def _rerank(question: str, hits: list) -> list:
     )
     resp.raise_for_status()
     results = resp.json()["results"]
-    return [hits[r["index"]] for r in results]
+    reranked = []
+    for r in results:
+        hit = hits[r["index"]]
+        hit.score = r.get("relevance_score", hit.score or 0.0)
+        reranked.append(hit)
+    return reranked
 
 
 def build_filter(criteria: dict | None) -> models.Filter | None:
@@ -181,7 +224,6 @@ def run_hybrid_query(q_dense: list[float], q_sparse, collection_name: str, limit
 
 
 def hybrid_search(question: str, collection_name: str) -> list:
-    # Compute vectors once — reused for both routing and search
     q_dense = _embed_dense(question)
     q_sparse = _embed_sparse(question)
 
@@ -204,16 +246,10 @@ def hybrid_search(question: str, collection_name: str) -> list:
     candidates = sorted(seen.values(), key=lambda h: h.score or 0.0, reverse=True)[:CANDIDATE_LIMIT]
     if not candidates:
         return []
-    return _rerank(question, candidates)[:CONTEXT_LIMIT]
 
-
-_GREETINGS = {"привет", "здравствуй", "здравствуйте", "хай", "добрый день", "добрый вечер", "доброе утро", "салют", "хэй", "hey", "hi", "hello"}
-
-_CLOSINGS = [
-    "Пиши, если будут ещё вопросы 💙",
-    "Если что-то непонятно — спрашивай 💙",
-    "Обращайся, всегда помогу 💙",
-]
+    reranked = _rerank(question, candidates)[:CONTEXT_LIMIT]
+    # Drop chunks below confidence threshold to prevent hallucinations
+    return [h for h in reranked if (h.score or 0) >= CONFIDENCE_THRESHOLD]
 
 
 def _is_greeting(text: str) -> bool:
@@ -221,7 +257,32 @@ def _is_greeting(text: str) -> bool:
     return t in _GREETINGS or any(t.startswith(g) for g in _GREETINGS)
 
 
-def ask_question(question: str) -> str:
+def _build_context(search_results: list) -> str:
+    parts = []
+    for hit in search_results:
+        source = hit.payload.get("source", "?")
+        page = hit.payload.get("page")
+        content = hit.payload.get("document") or hit.payload.get("text", "")
+        if not content:
+            continue
+        if page:
+            parts.append(f"--- ИСТОЧНИК: {source}, стр. {page} ---\n{content}")
+        else:
+            parts.append(f"--- ИСТОЧНИК: {source} ---\n{content}")
+    return "\n\n".join(parts)
+
+
+def _build_messages(context: str, question: str, history: list[dict] | None) -> list[dict]:
+    messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
+    if history:
+        for turn in history[-3:]:
+            messages.append({"role": "user", "content": turn.get("q", "")})
+            messages.append({"role": "assistant", "content": turn.get("a", "")})
+    messages.append({"role": "user", "content": f"Контекст из документов:\n{context}\n\nВопрос студента: {question}"})
+    return messages
+
+
+def ask_question(question: str, history: list[dict] | None = None) -> str:
     if question.strip() == "/start":
         return "Давай же начнем наше общение! Я всегда на связи, спрашивай 💙"
 
@@ -234,62 +295,17 @@ def ask_question(question: str) -> str:
         ])
 
     search_results = hybrid_search(question, COLLECTION_NAME)
-
     if not search_results:
         return "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
 
-    context_parts = []
-    for hit in search_results:
-        source = hit.payload.get("source", "?")
-        page = hit.payload.get("page")
-        content = hit.payload.get("document") or hit.payload.get("text", "")
-        if not content:
-            continue
-        if page:
-            context_parts.append(f"--- ИСТОЧНИК: {source}, стр. {page} ---\n{content}")
-        else:
-            context_parts.append(f"--- ИСТОЧНИК: {source} ---\n{content}")
-
-    if not context_parts:
+    context = _build_context(search_results)
+    if not context:
         return "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
 
-    context = "\n\n".join(context_parts)
-    prompt = f"Контекст из документов:\n{context}\n\nВопрос студента: {question}"
-
+    messages = _build_messages(context, question, history)
     completion = client_groq.chat.completions.create(
         model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": """ты — kAI, помощник нчф книту каи.
-правила:
-
-- если пользователь пишет /start — ответь: Давай же начнем наше общение! Я всегда на связи, спрашивай 💙
-- отвечай только на основе context.
-- если ответа в context нет — напиши: "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
-- не начинай ответы с приветствий и не представляйся.
-- не говори "согласно документам", "в тексте указано" и т.п.
-- не придумывай фактов.
-- никогда не подменяй похожие, но разные роли и места. Ректор КНИТУ-КАИ (главный вуз, Казань) и директор НЧФ (филиал, Набережные Челны) — разные люди. НЧФ и другие филиалы (Альметьевск и др.) — разные организации. Если в context есть информация о похожей, но другой роли/организации — скажи "нет информации", не подменяй.
-- если context содержит косвенное упоминание (например, слово "военкомат"), не делай вывод о наличии объекта (например, "военная кафедра"). Только прямые факты.
-- если вопрос про инфраструктуру НЧФ (аудитории, кабинеты, корпуса, расписание, этажи) — отвечай только если в context есть прямая информация именно об этом в НЧФ. Не собирай номера аудиторий или кабинетов из документов о вступительных испытаниях или других контекстов — там могут быть адреса и номера главного КАИ в Казани, а не НЧФ.
-- если ответ найден, в конце ответа на новой строке укажи только один источник в формате [src:<source>;p:<page>]
-- используй только источник, который уже есть в context
-- не придумывай источник
-- если ответа в context нет, источник не пиши
-
-стиль:
-- отвечай коротко, ясно и дружелюбно.
-
-предложение помощи:
-- не предлагай помощь в каждом ответе.
-- иногда можно добавить короткую фразу с предложением помощи (примерно в 1 из 4 ответов).
-- если добавляешь предложение помощи — поставь 💙 в самом конце.
-- если предложения помощи нет — 💙 использовать нельзя.
-""",
-            },
-            {"role": "user", "content": prompt},
-        ],
+        messages=messages,
         temperature=0.2,
     )
 
@@ -297,6 +313,44 @@ def ask_question(question: str) -> str:
     if random.random() < 0.10:
         answer = answer.rstrip() + "\n\n" + random.choice(_CLOSINGS)
     return answer
+
+
+def ask_question_stream(question: str, history: list[dict] | None = None) -> Generator[str, None, None]:
+    if question.strip() == "/start":
+        yield "Давай же начнем наше общение! Я всегда на связи, спрашивай 💙"
+        return
+
+    if _is_greeting(question):
+        yield random.choice([
+            "Привет! Я твой помощник по НЧФ КНИТУ-КАИ. Чем могу помочь? 💙",
+            "Привет! Спрашивай — расскажу всё о поступлении, программах и жизни в НЧФ КНИТУ-КАИ 💙",
+            "Здравствуй! Я kAI, помощник НЧФ КНИТУ-КАИ. Задавай вопросы — помогу разобраться 💙",
+            "Привет! Готов помочь с любыми вопросами про НЧФ КНИТУ-КАИ. С чего начнём? 💙",
+        ])
+        return
+
+    search_results = hybrid_search(question, COLLECTION_NAME)
+    if not search_results:
+        yield "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+        return
+
+    context = _build_context(search_results)
+    if not context:
+        yield "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+        return
+
+    messages = _build_messages(context, question, history)
+    stream = client_groq.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        temperature=0.2,
+        stream=True,
+    )
+
+    for chunk in stream:
+        token = chunk.choices[0].delta.content
+        if token:
+            yield token
 
 
 if __name__ == "__main__":

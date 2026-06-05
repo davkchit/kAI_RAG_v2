@@ -36,6 +36,13 @@ splitter = RecursiveCharacterTextSplitter(
     separators=["\n\n", "\n", ". ", " "],
 )
 
+# Smaller chunks for legal docs — each clause stays isolated
+splitter_legal = RecursiveCharacterTextSplitter(
+    chunk_size=400,
+    chunk_overlap=80,
+    separators=["\n\n", "\n", ". ", " "],
+)
+
 client = QdrantClient(
     url=os.getenv("QDRANT_URL", "http://localhost:6333"),
     api_key=os.getenv("QDRANT_API_KEY") or None,
@@ -256,8 +263,9 @@ def main():
             preview = build_preview_text(pages)
             profile = infer_document_profile(pdf.name, preview)
             print(f"Обработан (PDF): {pdf.name}")
-            for page_number, page_text in pages:
-                for i, chunk in enumerate(splitter.split_text(page_text)):
+            _splitter = splitter_legal if profile["doc_group"] in ("admission", "regulations") else splitter
+        for page_number, page_text in pages:
+                for i, chunk in enumerate(_splitter.split_text(page_text)):
                     chunk = chunk.strip()
                     if not chunk:
                         continue
@@ -271,8 +279,9 @@ def main():
         preview = build_preview_text(pages)
         profile = infer_document_profile(md.name, preview)
         print(f"Обработан (MD): {md.name}")
+        _splitter = splitter_legal if profile["doc_group"] in ("admission", "regulations") else splitter
         for page_number, page_text in pages:
-            for i, chunk in enumerate(splitter.split_text(page_text)):
+            for i, chunk in enumerate(_splitter.split_text(page_text)):
                 chunk = chunk.strip()
                 if not chunk:
                     continue

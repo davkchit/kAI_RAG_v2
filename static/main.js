@@ -277,6 +277,8 @@ document.querySelectorAll('.prog-card').forEach(card => {
   const sendBtn = document.getElementById('chatSend');
 
   let open = false, loading = false;
+  // [{role: 'user'|'bot', text: '...'}] — last 6 entries (3 pairs)
+  const chatHistory = [];
 
   function openChat(v) {
     open = v;
@@ -319,6 +321,11 @@ document.querySelectorAll('.prog-card').forEach(card => {
     return text.replace(/\[src:[^\]]+\]/g, '').trim();
   }
 
+  function pushHistory(role, text) {
+    chatHistory.push({ role, text });
+    if (chatHistory.length > 6) chatHistory.shift();
+  }
+
   async function send() {
     const q = input.value.trim();
     if (!q || loading) return;
@@ -328,22 +335,52 @@ document.querySelectorAll('.prog-card').forEach(card => {
     addMsg('user', q);
     input.value = '';
     input.style.height = 'auto';
+    pushHistory('user', q);
 
     const typingRow = addTyping();
+    let botRow = null, botBubble = null, fullText = '';
 
     try {
-      const res = await fetch('/ask', {
+      const res = await fetch('/ask/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, history: chatHistory.slice(0, -1) }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      typingRow.remove();
-      addMsg('bot', cleanAnswer(data.answer));
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const lines = decoder.decode(value).split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') break;
+          try {
+            const { token } = JSON.parse(payload);
+            if (!botRow) {
+              typingRow.remove();
+              botRow = addMsg('bot', '');
+              botBubble = botRow.querySelector('.msg-bubble');
+            }
+            fullText += token;
+            botBubble.textContent = cleanAnswer(fullText);
+            scrollBottom();
+          } catch { /* partial chunk */ }
+        }
+      }
+
+      const finalText = cleanAnswer(fullText) || 'Не удалось получить ответ — попробуй ещё раз.';
+      if (!botRow) { typingRow.remove(); addMsg('bot', finalText); }
+      pushHistory('bot', finalText);
+
     } catch {
       typingRow.remove();
-      addMsg('bot', 'Не удалось получить ответ — попробуй ещё раз.');
+      if (!botRow) addMsg('bot', 'Не удалось получить ответ — попробуй ещё раз.');
     } finally {
       loading = false;
       sendBtn.disabled = false;
