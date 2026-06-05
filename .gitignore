@@ -1,7 +1,7 @@
 .env
 __pycache__/
 .vscode
-# data/ intentionally tracked — all documents committed
+data/*.pdf
 odl_output/
 odl_probe/
 *.pyc
