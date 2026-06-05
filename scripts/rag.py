@@ -295,14 +295,21 @@ def ask_question(question: str, history: list[dict] | None = None) -> str:
         ])
 
     search_results = hybrid_search(question, COLLECTION_NAME)
-    if not search_results:
-        return "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+    context = _build_context(search_results) if search_results else ""
 
-    context = _build_context(search_results)
     if not context:
-        return "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+        if history:
+            # No docs found but conversation exists — answer from history
+            messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
+            for turn in history[-3:]:
+                messages.append({"role": "user", "content": turn.get("q", "")})
+                messages.append({"role": "assistant", "content": turn.get("a", "")})
+            messages.append({"role": "user", "content": question})
+        else:
+            return "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+    else:
+        messages = _build_messages(context, question, history)
 
-    messages = _build_messages(context, question, history)
     completion = client_groq.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=messages,
@@ -330,16 +337,20 @@ def ask_question_stream(question: str, history: list[dict] | None = None) -> Gen
         return
 
     search_results = hybrid_search(question, COLLECTION_NAME)
-    if not search_results:
-        yield "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
-        return
+    context = _build_context(search_results) if search_results else ""
 
-    context = _build_context(search_results)
     if not context:
-        yield "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
-        return
-
-    messages = _build_messages(context, question, history)
+        if history:
+            messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
+            for turn in history[-3:]:
+                messages.append({"role": "user", "content": turn.get("q", "")})
+                messages.append({"role": "assistant", "content": turn.get("a", "")})
+            messages.append({"role": "user", "content": question})
+        else:
+            yield "Извини, у меня нет информации по этому вопросу. Попробуй переформулировать."
+            return
+    else:
+        messages = _build_messages(context, question, history)
     stream = client_groq.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=messages,
